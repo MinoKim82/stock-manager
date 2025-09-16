@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import AccountList from './pages/AccountList';
 import AccountDetail from './pages/AccountDetail';
 import TransactionList from './pages/TransactionList';
+import TransactionManagement from './pages/TransactionManagement';
 import PortfolioSummary from './pages/PortfolioSummary';
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
             <Route path="/accounts" element={<AccountList />} />
             <Route path="/accounts/:id" element={<AccountDetail />} />
             <Route path="/accounts/:id/transactions" element={<TransactionList />} />
+            <Route path="/transactions" element={<TransactionManagement />} />
           </Routes>
         </Layout>
       </Router>

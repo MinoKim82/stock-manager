@@ -68,6 +68,28 @@ def delete_account(account_id: int, db: Session = Depends(get_db)):
     return {"message": "Account deleted successfully"}
 
 # Transaction endpoints
+@app.get("/transactions/", response_model=List[schemas.Transaction])
+def read_all_transactions(
+    skip: int = 0,
+    limit: int = 100,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    stock_symbol: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """모든 거래 목록 조회"""
+    from datetime import datetime
+    
+    filters = schemas.TransactionFilter(
+        start_date=datetime.fromisoformat(start_date) if start_date else None,
+        end_date=datetime.fromisoformat(end_date) if end_date else None,
+        stock_symbol=stock_symbol,
+        transaction_type=transaction_type
+    )
+    
+    return crud.get_all_transactions(db=db, filters=filters, skip=skip, limit=limit)
+
 @app.post("/transactions/", response_model=schemas.Transaction)
 def create_transaction(transaction: schemas.TransactionCreate, db: Session = Depends(get_db)):
     """새 거래 추가 (REQ-TRN-001)"""

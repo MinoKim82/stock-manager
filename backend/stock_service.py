@@ -20,7 +20,11 @@ class StockService:
                 logger.info(f"Loaded {len(self.kr_stocks)} Korean stocks")
         except Exception as e:
             logger.error(f"Error loading Korean stocks: {e}")
-            self.kr_stocks = pd.DataFrame()
+            # 기본 샘플 데이터 제공
+            self.kr_stocks = pd.DataFrame({
+                'Symbol': ['005930', '000660', '035420', '207940', '006400'],
+                'Name': ['삼성전자', 'SK하이닉스', 'NAVER', '삼성바이오로직스', '삼성SDI']
+            })
     
     def _load_us_stocks(self):
         """미국 주식 목록 로드 (S&P 500)"""
@@ -31,7 +35,11 @@ class StockService:
                 logger.info(f"Loaded {len(self.us_stocks)} US stocks")
         except Exception as e:
             logger.error(f"Error loading US stocks: {e}")
-            self.us_stocks = pd.DataFrame()
+            # 기본 샘플 데이터 제공
+            self.us_stocks = pd.DataFrame({
+                'Symbol': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'],
+                'Name': ['Apple Inc.', 'Microsoft Corporation', 'Alphabet Inc.', 'Amazon.com Inc.', 'Tesla Inc.']
+            })
     
     def search_kr_stocks(self, query: str, limit: int = 20) -> List[StockSearchResult]:
         """한국 주식 검색"""

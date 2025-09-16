@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   HomeOutlined,
   BankOutlined,
+  TransactionOutlined,
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = AntLayout;
@@ -26,6 +27,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/accounts',
       icon: <BankOutlined />,
       label: <Link to="/accounts">계좌 관리</Link>,
+    },
+    {
+      key: '/transactions',
+      icon: <TransactionOutlined />,
+      label: <Link to="/transactions">거래 관리</Link>,
     },
   ];
 

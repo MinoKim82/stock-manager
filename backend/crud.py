@@ -83,6 +83,21 @@ def filter_transactions(db: Session, account_id: int, filters: TransactionFilter
     
     return query.order_by(desc(Transaction.date)).offset(skip).limit(limit).all()
 
+def get_all_transactions(db: Session, filters: TransactionFilter, skip: int = 0, limit: int = 100) -> List[Transaction]:
+    """모든 계좌의 거래 목록 조회"""
+    query = db.query(Transaction)
+    
+    if filters.start_date:
+        query = query.filter(Transaction.date >= filters.start_date)
+    if filters.end_date:
+        query = query.filter(Transaction.date <= filters.end_date)
+    if filters.stock_symbol:
+        query = query.filter(Transaction.stock_symbol == filters.stock_symbol)
+    if filters.transaction_type:
+        query = query.filter(Transaction.transaction_type == filters.transaction_type)
+    
+    return query.order_by(desc(Transaction.date)).offset(skip).limit(limit).all()
+
 # Portfolio summary calculation
 def get_portfolio_summary(db: Session) -> dict:
     # Get all accounts

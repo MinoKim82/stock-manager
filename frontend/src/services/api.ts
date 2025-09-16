@@ -44,6 +44,18 @@ export const accountApi = {
 
 // Transaction API
 export const transactionApi = {
+  // 모든 거래 목록 조회
+  getAllTransactions: async (filters?: TransactionFilter): Promise<Transaction[]> => {
+    const params = new URLSearchParams();
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.stock_symbol) params.append('stock_symbol', filters.stock_symbol);
+    if (filters?.transaction_type) params.append('transaction_type', filters.transaction_type);
+    
+    const response = await api.get(`/transactions/?${params.toString()}`);
+    return response.data;
+  },
+
   // 거래 목록 조회
   getTransactions: async (accountId: number, filters?: TransactionFilter): Promise<Transaction[]> => {
     const params = new URLSearchParams();
