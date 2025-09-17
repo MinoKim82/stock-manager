@@ -42,6 +42,7 @@ const TransactionList: React.FC = () => {
   const [stockSearchVisible, setStockSearchVisible] = useState(false);
   const [stockSearchResults, setStockSearchResults] = useState<StockSearchResult[]>([]);
   const [form] = Form.useForm();
+  const transactionType = Form.useWatch('transaction_type', form);
 
   const transactionTypes = [
     { value: '입금', label: '입금' },
@@ -101,7 +102,7 @@ const TransactionList: React.FC = () => {
   const handleCreate = () => {
     setEditingTransaction(null);
     form.resetFields();
-    form.setFieldsValue({ account_id: Number(id) });
+    form.setFieldsValue({ account_id: Number(id), transaction_currency: account?.currency || 'KRW' });
     setModalVisible(true);
   };
 
@@ -126,9 +127,22 @@ const TransactionList: React.FC = () => {
   };
 
   const handleSubmit = async (values: TransactionFormData) => {
+    console.log("Form values on submit:", values);
     try {
+      const payload: any = { ...values };
+
+      if (values.transaction_type === '매수' || values.transaction_type === '매도') {
+        delete payload.amount;
+      } else {
+        delete payload.stock_name;
+        delete payload.stock_symbol;
+        delete payload.market;
+        delete payload.quantity;
+        delete payload.price_per_share;
+      }
+
       const submitData = {
-        ...values,
+        ...payload,
         date: values.date ? dayjs(values.date).toISOString() : new Date().toISOString(),
       };
 
@@ -325,6 +339,9 @@ const TransactionList: React.FC = () => {
           layout="vertical"
           onFinish={handleSubmit}
         >
+          <Form.Item name="account_id" hidden>
+            <Input />
+          </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -352,88 +369,69 @@ const TransactionList: React.FC = () => {
             </Col>
           </Row>
 
-          <Form.Item
-            name="amount"
-            label="금액 (입금/출금/배당금/이자용)"
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-            />
-          </Form.Item>
+          {(transactionType === '매수' || transactionType === '매도') ? (
+            <>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="stock_name" label="주식명">
+                    <Input.Search
+                      placeholder="주식명을 입력하세요"
+                      enterButton={<SearchOutlined />}
+                      onSearch={handleStockSearch}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="stock_symbol" label="주식 심볼">
+                    <Input disabled />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="market" label="거래소">
+                    <Select>
+                      {marketTypes.map(market => (
+                        <Option key={market.value} value={market.value}>
+                          {market.label}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="quantity" label="수량">
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="price_per_share" label="주당 가격">
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          ) : (
+            <Form.Item name="amount" label="금액">
+              <InputNumber
+                style={{ width: '100%' }}
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+              />
+            </Form.Item>
+          )}
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item
-                name="stock_name"
-                label="주식명"
-              >
-                <Input.Search
-                  placeholder="주식명을 입력하세요"
-                  enterButton={<SearchOutlined />}
-                  onSearch={handleStockSearch}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item
-                name="stock_symbol"
-                label="주식 심볼"
-              >
-                <Input disabled />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item
-                name="market"
-                label="거래소"
-              >
-                <Select>
-                  {marketTypes.map(market => (
-                    <Option key={market.value} value={market.value}>
-                      {market.label}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="quantity"
-                label="수량 (매수/매도용)"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="price_per_share"
-                label="주당 가격 (매수/매도용)"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="fee"
-                label="수수료"
-                initialValue={0}
-              >
+              <Form.Item name="fee" label="수수료" initialValue={0}>
                 <InputNumber
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -458,10 +456,7 @@ const TransactionList: React.FC = () => {
             </Col>
           </Row>
 
-          <Form.Item
-            name="exchange_rate"
-            label="환율 (해당시)"
-          >
+          <Form.Item name="exchange_rate" label="환율 (해당시)">
             <InputNumber
               style={{ width: '100%' }}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
