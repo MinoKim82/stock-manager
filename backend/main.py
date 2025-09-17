@@ -157,6 +157,26 @@ def search_stocks(
         logger.error(f"Error searching stocks: {e}")
         raise HTTPException(status_code=500, detail="Stock search failed")
 
+@app.post("/stocks/cache/refresh")
+def refresh_stock_cache():
+    """주식 캐시 새로고침"""
+    try:
+        stock_service.refresh_cache()
+        return {"message": "주식 캐시가 새로고침되었습니다."}
+    except Exception as e:
+        logger.error(f"Error refreshing stock cache: {e}")
+        raise HTTPException(status_code=500, detail="캐시 새로고침에 실패했습니다.")
+
+@app.delete("/stocks/cache")
+def clear_stock_cache():
+    """주식 캐시 초기화"""
+    try:
+        stock_service.clear_cache()
+        return {"message": "주식 캐시가 초기화되었습니다."}
+    except Exception as e:
+        logger.error(f"Error clearing stock cache: {e}")
+        raise HTTPException(status_code=500, detail="캐시 초기화에 실패했습니다.")
+
 @app.get("/stocks/price/{symbol}")
 def get_stock_price(symbol: str, market: str = Query("kr", description="시장 (kr, us)")):
     """현재 주가 조회 (REQ-STK-005)"""

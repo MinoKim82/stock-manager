@@ -159,6 +159,16 @@ const TransactionManagement: React.FC = () => {
     setStockSearchVisible(false);
   };
 
+  const handleRefreshCache = async () => {
+    try {
+      await stockApi.refreshCache();
+      message.success('주식 캐시가 새로고침되었습니다.');
+    } catch (error) {
+      message.error('캐시 새로고침에 실패했습니다.');
+      console.error('Error refreshing cache:', error);
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
@@ -304,6 +314,9 @@ const TransactionManagement: React.FC = () => {
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
               거래 추가
+            </Button>
+            <Button onClick={handleRefreshCache} title="주식 데이터 캐시 새로고침">
+              캐시 새로고침
             </Button>
           </Space>
         </div>

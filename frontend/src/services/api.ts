@@ -105,6 +105,16 @@ export const stockApi = {
     const response = await api.get(`/stocks/price/${symbol}?market=${market}`);
     return response.data;
   },
+
+  // 주식 캐시 새로고침
+  refreshCache: async (): Promise<void> => {
+    await api.post('/stocks/cache/refresh');
+  },
+
+  // 주식 캐시 초기화
+  clearCache: async (): Promise<void> => {
+    await api.delete('/stocks/cache');
+  },
 };
 
 // Portfolio API
