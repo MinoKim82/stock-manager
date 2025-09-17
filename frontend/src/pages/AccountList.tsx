@@ -20,7 +20,7 @@ const AccountList: React.FC = () => {
     { value: 'ISA계좌', label: 'ISA계좌' },
     { value: 'CMA계좌', label: 'CMA계좌' },
     { value: '종합매매계좌', label: '종합매매계좌' },
-    { value: '미국주식계좌', label: '미국주식계좌' },
+    { value: '해외주식계좌', label: '해외주식계좌' },
   ];
 
   const currencies = [

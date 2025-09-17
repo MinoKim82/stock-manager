@@ -3,7 +3,7 @@ export interface Account {
   owner_name: string;
   broker: string;
   account_number: string;
-  account_type: '연금계좌' | 'IRP계좌' | 'ISA계좌' | 'CMA계좌' | '종합매매계좌' | '미국주식계좌';
+  account_type: '연금계좌' | 'IRP계좌' | 'ISA계좌' | 'CMA계좌' | '종합매매계좌' | '해외주식계좌';
   current_balance: number;
   currency: 'KRW' | 'USD';
   created_at: string;
