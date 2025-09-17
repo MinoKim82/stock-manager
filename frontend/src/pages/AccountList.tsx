@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table, Button, Space, Typography, Card, Modal, Form, Input, Select, InputNumber, message, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { accountApi } from '../services/api';
@@ -13,6 +14,7 @@ const AccountList: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [form] = Form.useForm();
+  const navigate = useNavigate();
 
   const accountTypes = [
     { value: '연금계좌', label: '연금계좌' },
@@ -140,7 +142,7 @@ const AccountList: React.FC = () => {
           <Button
             type="link"
             icon={<EyeOutlined />}
-            onClick={() => window.open(`/accounts/${record.id}`, '_blank')}
+            onClick={() => navigate(`/accounts/${record.id}`)}
           >
             상세
           </Button>

@@ -311,7 +311,10 @@ const TransactionManagement: React.FC = () => {
       title: '수수료',
       dataIndex: 'fee',
       key: 'fee',
-      render: (value: number) => formatCurrency(value, 'KRW'),
+      render: (value: number, record: Transaction) => {
+        const feeCurrency = record.transaction_type === '입금' ? 'KRW' : record.transaction_currency;
+        return formatCurrency(value, feeCurrency);
+      },
       width: 100,
     },
     {
