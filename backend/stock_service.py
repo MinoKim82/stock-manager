@@ -65,8 +65,7 @@ class StockService:
         try:
             logger.info("Loading Korean stocks from API")
             self.kr_stocks = fdr.StockListing('KRX')
-            print(self.kr_stocks)
-            
+
             # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
             if 'Code' in self.kr_stocks.columns:
                 self.kr_stocks = self.kr_stocks.rename(columns={'Code': 'Symbol'})
@@ -96,7 +95,8 @@ class StockService:
         # 캐시가 없거나 만료된 경우 API에서 로드
         try:
             logger.info("Loading US stocks from API")
-            self.us_stocks = fdr.StockListing('S&P500')
+            self.us_stocks = fdr.StockListing('NYSE')
+            print(self.us_stocks.head())
             
             # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
             if 'Code' in self.us_stocks.columns:
