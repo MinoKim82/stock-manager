@@ -189,7 +189,7 @@ const TransactionManagement: React.FC = () => {
     form.setFieldsValue({
       stock_name: stock.name,
       stock_symbol: stock.symbol,
-      market: stock.market === 'KRX' ? 'KRX' : undefined,
+      market: stock.market,
     });
     setStockSearchVisible(false);
   };

@@ -232,9 +232,15 @@ class StockService:
         try:
             logger.info("Loading US stocks from API")
             nyse = fdr.StockListing('NYSE')
+            nyse['Market'] = 'NYS'
             nasdaq = fdr.StockListing('NASDAQ')
+            nasdaq['Market'] = 'NAS'
             amex = fdr.StockListing('AMEX')
-            self.us_stocks = pd.concat([nyse, nasdaq, amex], ignore_index=True)
+            amex['Market'] = 'AMS'
+            etf = fdr.StockListing('ETF/US')
+            etf['Market'] = 'AMS'
+            
+            self.us_stocks = pd.concat([nyse, nasdaq, amex, etf], ignore_index=True)
             
             # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
             if 'Code' in self.us_stocks.columns:
@@ -276,7 +282,7 @@ class StockService:
     def search_us_stocks(self, query: str, limit: int = 20) -> List[StockSearchResult]:
         """미국 주식 검색"""
         self._load_us_stocks()
-        
+
         if self.us_stocks is None or self.us_stocks.empty:
             return []
         
@@ -288,12 +294,12 @@ class StockService:
         )
         
         results = self.us_stocks[mask].head(limit)
-        
+
         return [
             StockSearchResult(
                 symbol=row['Symbol'],
                 name=row['Name'],
-                market='NYSE/NASDAQ/AMEX'
+                market=row['Market']
             )
             for _, row in results.iterrows()
         ]
