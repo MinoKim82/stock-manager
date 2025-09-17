@@ -97,6 +97,67 @@ class StockService:
             logger.error(f"Error getting KIS current price for {symbol}: {e}")
             return None
     
+    def _get_kis_current_price_us(self, symbol: str, exchange: str) -> Optional[float]:
+        """한국투자증권 API를 이용한 해외 주식 현재가 조회"""
+        token = self._get_kis_access_token()
+        if not token:
+            return None
+
+        # KIS API는 해외주식 현재가를 조회하기 위해 다른 URL과 tr_id를 사용합니다.
+        url = f"{self.KIS_BASE_URL}/uapi/overseas-price/v1/quotations/price"
+        headers = {
+            "Content-Type": "application/json",
+            "authorization": f"Bearer {token}",
+            "appkey": self.KIS_APP_KEY,
+            "appsecret": self.KIS_APP_SECRET,
+            "tr_id": "HHDFS00000300"  # 해외주식 현재체결가
+        }
+        params = {
+            "AUTH": "",  # URL 인코딩 문제 방지를 위해 빈 값으로 설정 (헤더에 토큰 사용)
+            "EXCD": exchange,  # 거래소 코드 (NAS: 나스닥, NYS: 뉴욕, AMS: 아멕스)
+            "SYMB": symbol  # 종목 코드
+        }
+
+        try:
+            res = requests.get(url, headers=headers, params=params)
+            res.raise_for_status()
+            response_data = res.json()
+
+            if response_data and response_data.get("rt_cd") == "0":
+                # 해외주식 API의 가격 필드는 'last' 입니다.
+                current_price = float(response_data["output"]["last"])
+                logger.info(f"KIS Current price for {symbol} ({exchange}): {current_price}")
+                return current_price
+            else:
+                logger.error(f"KIS API error for {symbol}: {response_data.get('msg1')}")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error getting KIS current price for {symbol}: {e}")
+            return None
+        except (KeyError, TypeError) as e:
+            logger.error(f"Failed to parse KIS API response for {symbol}: {e}")
+            return None
+
+    def _get_us_stock_exchange(self, symbol: str) -> Optional[str]:
+        """심볼로 미국 주식의 거래소 코드를 찾아 KIS API 형식으로 반환합니다."""
+        self._load_us_stocks()
+        if self.us_stocks is None:
+            return None
+        
+        stock_info = self.us_stocks[self.us_stocks['Symbol'] == symbol]
+        if not stock_info.empty:
+            exchange = stock_info.iloc[0]['Market']
+            if exchange == 'NYSE':
+                return 'NYS'
+            elif exchange == 'NASDAQ':
+                return 'NAS'
+            elif exchange == 'AMEX':
+                return 'AMS'
+            else:
+                logger.warning(f"Unknown exchange '{exchange}' for symbol {symbol}")
+                return None
+        return None
+
     def _is_cache_valid(self, cache_file: str) -> bool:
         """캐시 파일이 유효한지 확인"""
         if not os.path.exists(cache_file):
@@ -154,7 +215,7 @@ class StockService:
             logger.error(f"Error loading Korean stocks: {e}")
     
     def _load_us_stocks(self):
-        """미국 주식 목록 로드 (S&P 500) (캐싱 적용)"""
+        """미국 주식 목록 로드 (NYSE, NASDAQ, AMEX) (캐싱 적용)"""
         if self.us_stocks is not None:
             return
             
@@ -170,8 +231,10 @@ class StockService:
         # 캐시가 없거나 만료된 경우 API에서 로드
         try:
             logger.info("Loading US stocks from API")
-            self.us_stocks = fdr.StockListing('NYSE')
-            print(self.us_stocks.head())
+            nyse = fdr.StockListing('NYSE')
+            nasdaq = fdr.StockListing('NASDAQ')
+            amex = fdr.StockListing('AMEX')
+            self.us_stocks = pd.concat([nyse, nasdaq, amex], ignore_index=True)
             
             # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
             if 'Code' in self.us_stocks.columns:
@@ -189,7 +252,7 @@ class StockService:
         """한국 주식 검색"""
         self._load_kr_stocks()
         
-        if self.kr_stocks.empty:
+        if self.kr_stocks is None or self.kr_stocks.empty:
             return []
         
         # 이름과 심볼로 검색
@@ -214,7 +277,7 @@ class StockService:
         """미국 주식 검색"""
         self._load_us_stocks()
         
-        if self.us_stocks.empty:
+        if self.us_stocks is None or self.us_stocks.empty:
             return []
         
         # 이름과 심볼로 검색
@@ -230,7 +293,7 @@ class StockService:
             StockSearchResult(
                 symbol=row['Symbol'],
                 name=row['Name'],
-                market='NYSE/NASDAQ'
+                market='NYSE/NASDAQ/AMEX'
             )
             for _, row in results.iterrows()
         ]
@@ -257,11 +320,23 @@ class StockService:
                 # 한국 주식 (KIS API 사용)
                 return self._get_kis_current_price(symbol)
             elif market == 'us':
-                # 미국 주식 (yfinance 사용)
+                # 미국 주식 (KIS API 사용)
+                exchange = self._get_us_stock_exchange(symbol)
+                if exchange:
+                    price = self._get_kis_current_price_us(symbol, exchange)
+                    if price is not None:
+                        return price
+
+                # KIS API 실패 시 yfinance로 대체
+                logger.warning(f"Failed to get price for {symbol} via KIS API. Falling back to yfinance.")
                 ticker = yf.Ticker(symbol)
                 todays_data = ticker.history(period='1d')
                 if not todays_data.empty:
                     return float(todays_data['Close'].iloc[-1])
+                else:
+                    logger.error(f"Could not get price from yfinance for {symbol}")
+                    return None
+
         except Exception as e:
             logger.error(f"Error getting current price for {symbol}: {e}")
             return None
