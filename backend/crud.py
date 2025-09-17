@@ -24,10 +24,19 @@ def update_account(db: Session, account_id: int, account_update: AccountUpdate) 
     db_account = db.query(Account).filter(Account.id == account_id).first()
     if db_account:
         update_data = account_update.dict(exclude_unset=True)
+        
+        # Check if initial_balance is being updated
+        initial_balance_updated = 'initial_balance' in update_data
+
         for field, value in update_data.items():
             setattr(db_account, field, value)
         db.commit()
         db.refresh(db_account)
+
+        # If initial_balance was updated, recalculate the current balance
+        if initial_balance_updated:
+            _recalculate_account_balance(db, account_id)
+
     return db_account
 
 def delete_account(db: Session, account_id: int) -> bool:

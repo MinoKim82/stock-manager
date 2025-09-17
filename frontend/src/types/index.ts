@@ -4,7 +4,7 @@ export interface Account {
   broker: string;
   account_number: string;
   account_type: '연금계좌' | 'IRP계좌' | 'ISA계좌' | 'CMA계좌' | '종합매매계좌' | '미국주식계좌';
-  balance: number;
+  current_balance: number;
   currency: 'KRW' | 'USD';
   created_at: string;
   updated_at: string;
@@ -64,7 +64,7 @@ export interface AccountFormData {
   broker: string;
   account_number: string;
   account_type: string;
-  balance: number;
+  initial_balance: number;
   currency: string;
 }
 

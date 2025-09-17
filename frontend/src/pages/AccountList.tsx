@@ -115,8 +115,8 @@ const AccountList: React.FC = () => {
     },
     {
       title: '잔액',
-      dataIndex: 'balance',
-      key: 'balance',
+      dataIndex: 'current_balance',
+      key: 'current_balance',
       render: (value: number, record: Account) => formatCurrency(value, record.currency),
     },
     {
@@ -228,8 +228,8 @@ const AccountList: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="balance"
-            label="잔액"
+            name="initial_balance"
+            label="초기 금액"
             rules={[{ required: true, message: '잔액을 입력해주세요.' }]}
           >
             <InputNumber

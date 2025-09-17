@@ -76,7 +76,7 @@ const AccountDetail: React.FC = () => {
           <Card>
             <Statistic
               title="현재 잔액"
-              value={account.balance}
+              value={account.current_balance}
               formatter={(value) => formatCurrency(Number(value), account.currency)}
             />
           </Card>
@@ -108,7 +108,7 @@ const AccountDetail: React.FC = () => {
               <Descriptions.Item label="계좌번호">{account.account_number}</Descriptions.Item>
               <Descriptions.Item label="계좌유형">{account.account_type}</Descriptions.Item>
               <Descriptions.Item label="잔액">
-                {formatCurrency(account.balance, account.currency)}
+                {formatCurrency(account.current_balance, account.currency)}
               </Descriptions.Item>
               <Descriptions.Item label="통화">{account.currency}</Descriptions.Item>
               <Descriptions.Item label="생성일">
