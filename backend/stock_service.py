@@ -8,6 +8,10 @@ import pickle
 import json
 import time
 from datetime import datetime, timedelta
+import requests
+from dotenv import load_dotenv
+
+load_dotenv() # .env 파일 로드
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +21,80 @@ class StockService:
         self.us_stocks = None
         self.cache_dir = "stock_cache"
         self.cache_duration = timedelta(days=1)  # 1일 캐시
+
+        self.KIS_APP_KEY = os.getenv("KIS_APP_KEY")
+        self.KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
+        self.KIS_BASE_URL = "https://openapivts.koreainvestment.com:29443" # 모의투자 서버 URL
+        self.KIS_ACCESS_TOKEN = None
+        self.KIS_TOKEN_EXPIRED_AT = None
         
         # 캐시 디렉토리 생성
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+
+    def _get_kis_access_token(self):
+        """한국투자증권 API 접근 토큰 발급 및 관리"""
+        if self.KIS_ACCESS_TOKEN and self.KIS_TOKEN_EXPIRED_AT and datetime.now() < self.KIS_TOKEN_EXPIRED_AT:
+            return self.KIS_ACCESS_TOKEN
+
+        if not self.KIS_APP_KEY or not self.KIS_APP_SECRET:
+            logger.error("KIS_APP_KEY or KIS_APP_SECRET is not set in .env")
+            return None
+
+        url = f"{self.KIS_BASE_URL}/oauth2/tokenP"
+        headers = {"content-type": "application/json"}
+        body = {
+            "grant_type": "client_credentials",
+            "appkey": self.KIS_APP_KEY,
+            "appsecret": self.KIS_APP_SECRET
+        }
+        try:
+            res = requests.post(url, headers=headers, data=json.dumps(body))
+            res.raise_for_status()
+            response_data = res.json()
+            self.KIS_ACCESS_TOKEN = response_data["access_token"]
+            expires_in = response_data["expires_in"] # 초 단위
+            self.KIS_TOKEN_EXPIRED_AT = datetime.now() + timedelta(seconds=expires_in - 60) # 1분 여유
+            logger.info("KIS Access Token issued successfully.")
+            return self.KIS_ACCESS_TOKEN
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error getting KIS access token: {e}")
+            return None
+
+    def _get_kis_current_price(self, symbol: str) -> Optional[float]:
+        """한국투자증권 API를 이용한 현재가 조회"""
+        token = self._get_kis_access_token()
+        if not token:
+            return None
+
+        url = f"{self.KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
+        headers = {
+            "Content-Type": "application/json",
+            "authorization": f"Bearer {token}",
+            "appkey": self.KIS_APP_KEY,
+            "appsecret": self.KIS_APP_SECRET,
+            "tr_id": "FHKST01010100" # 주식 현재가 시세
+        }
+        params = {
+            "fid_cond_mrkt_div_code": "J", # 주식 시장 구분 (J: 주식)
+            "fid_input_iscd": symbol # 종목코드
+        }
+
+        try:
+            res = requests.get(url, headers=headers, params=params)
+            res.raise_for_status()
+            response_data = res.json()
+
+            if response_data and response_data["rt_cd"] == "0": # 성공
+                current_price = float(response_data["output"]["stck_prpr"])
+                logger.info(f"KIS Current price for {symbol}: {current_price}")
+                return current_price
+            else:
+                logger.error(f"KIS API error for {symbol}: {response_data.get('msg1')}")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error getting KIS current price for {symbol}: {e}")
+            return None
     
     def _is_cache_valid(self, cache_file: str) -> bool:
         """캐시 파일이 유효한지 확인"""
@@ -179,12 +253,10 @@ class StockService:
         """현재 주가 조회"""
         try:
             if market == 'kr':
-                # 한국 주식
-                data = fdr.DataReader(symbol, '2024-01-01', '2024-12-31')
-                if not data.empty:
-                    return float(data['Close'].iloc[-1])
+                # 한국 주식 (KIS API 사용)
+                return self._get_kis_current_price(symbol)
             elif market == 'us':
-                # 미국 주식
+                # 미국 주식 (FinanceDataReader 사용)
                 data = fdr.DataReader(symbol, '2024-01-01', '2024-12-31')
                 if not data.empty:
                     return float(data['Close'].iloc[-1])
