@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
+import yfinance as yf
 
 load_dotenv() # .env 파일 로드
 
@@ -256,10 +257,11 @@ class StockService:
                 # 한국 주식 (KIS API 사용)
                 return self._get_kis_current_price(symbol)
             elif market == 'us':
-                # 미국 주식 (FinanceDataReader 사용)
-                data = fdr.DataReader(symbol, '2024-01-01', '2024-12-31')
-                if not data.empty:
-                    return float(data['Close'].iloc[-1])
+                # 미국 주식 (yfinance 사용)
+                ticker = yf.Ticker(symbol)
+                todays_data = ticker.history(period='1d')
+                if not todays_data.empty:
+                    return float(todays_data['Close'].iloc[-1])
         except Exception as e:
             logger.error(f"Error getting current price for {symbol}: {e}")
             return None
