@@ -10,7 +10,8 @@ class AccountBase(BaseModel):
     broker: str = Field(..., max_length=100)
     account_number: str = Field(..., max_length=50)
     account_type: AccountType
-    balance: Decimal = Field(default=Decimal('0.00'))
+    initial_balance: Decimal = Field(default=Decimal('0.00'))
+    current_balance: Decimal = Field(default=Decimal('0.00'))
     currency: Currency
 
 class AccountCreate(AccountBase):
@@ -21,7 +22,8 @@ class AccountUpdate(BaseModel):
     broker: Optional[str] = Field(None, max_length=100)
     account_number: Optional[str] = Field(None, max_length=50)
     account_type: Optional[AccountType] = None
-    balance: Optional[Decimal] = None
+    initial_balance: Optional[Decimal] = None
+    current_balance: Optional[Decimal] = None
     currency: Optional[Currency] = None
 
 class Account(AccountBase):

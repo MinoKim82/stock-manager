@@ -1,13 +1,14 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, func
 from typing import List, Optional
-from models import Account, Transaction
+from models import Account, Transaction, TransactionType
 from schemas import AccountCreate, AccountUpdate, TransactionCreate, TransactionUpdate, TransactionFilter
 from decimal import Decimal
 
 # Account CRUD operations
 def create_account(db: Session, account: AccountCreate) -> Account:
     db_account = Account(**account.dict())
+    db_account.current_balance = db_account.initial_balance # 초기 금액을 현재 잔액으로 설정
     db.add(db_account)
     db.commit()
     db.refresh(db_account)
@@ -37,12 +38,64 @@ def delete_account(db: Session, account_id: int) -> bool:
         return True
     return False
 
+def _recalculate_account_balance(db: Session, account_id: int):
+    db_account = db.query(Account).filter(Account.id == account_id).first()
+    if not db_account:
+        return
+
+    # Reset current balance to initial balance
+    db_account.current_balance = db_account.initial_balance
+
+    # Apply all transactions to recalculate current balance
+    transactions = db.query(Transaction).filter(Transaction.account_id == account_id).order_by(Transaction.date).all()
+
+    for transaction in transactions:
+        if transaction.transaction_type == TransactionType.DEPOSIT:
+            db_account.current_balance += transaction.amount
+        elif transaction.transaction_type == TransactionType.WITHDRAWAL:
+            db_account.current_balance -= transaction.amount
+        elif transaction.transaction_type == TransactionType.BUY:
+            total_cost = (transaction.quantity * transaction.price_per_share) + transaction.fee
+            db_account.current_balance -= total_cost
+        elif transaction.transaction_type == TransactionType.SELL:
+            total_revenue = (transaction.quantity * transaction.price_per_share) - transaction.fee
+            db_account.current_balance += total_revenue
+        elif transaction.transaction_type == TransactionType.DIVIDEND:
+            db_account.current_balance += transaction.amount
+        elif transaction.transaction_type == TransactionType.INTEREST:
+            db_account.current_balance += transaction.amount
+    
+    db.commit()
+    db.refresh(db_account)
+
 # Transaction CRUD operations
 def create_transaction(db: Session, transaction: TransactionCreate) -> Transaction:
     db_transaction = Transaction(**transaction.dict())
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    
+    # Update account balance
+    db_account = db.query(Account).filter(Account.id == db_transaction.account_id).first()
+    if db_account:
+        if db_transaction.transaction_type == TransactionType.DEPOSIT:
+            db_account.current_balance += db_transaction.amount
+        elif db_transaction.transaction_type == TransactionType.WITHDRAWAL:
+            db_account.current_balance -= db_transaction.amount
+        elif db_transaction.transaction_type == TransactionType.BUY:
+            total_cost = (db_transaction.quantity * db_transaction.price_per_share) + db_transaction.fee
+            db_account.current_balance -= total_cost
+        elif db_transaction.transaction_type == TransactionType.SELL:
+            total_revenue = (db_transaction.quantity * db_transaction.price_per_share) - db_transaction.fee
+            db_account.current_balance += total_revenue
+        elif db_transaction.transaction_type == TransactionType.DIVIDEND:
+            db_account.current_balance += db_transaction.amount
+        elif db_transaction.transaction_type == TransactionType.INTEREST:
+            db_account.current_balance += db_transaction.amount
+        
+        db.commit()
+        db.refresh(db_account)
+            
     return db_transaction
 
 def get_transactions(db: Session, account_id: int, skip: int = 0, limit: int = 100) -> List[Transaction]:
@@ -54,18 +107,22 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[Transaction]:
 def update_transaction(db: Session, transaction_id: int, transaction_update: TransactionUpdate) -> Optional[Transaction]:
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if db_transaction:
+        account_id = db_transaction.account_id # Store account_id before update
         update_data = transaction_update.dict(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_transaction, field, value)
         db.commit()
         db.refresh(db_transaction)
+        _recalculate_account_balance(db, account_id) # Recalculate balance after update
     return db_transaction
 
 def delete_transaction(db: Session, transaction_id: int) -> bool:
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if db_transaction:
+        account_id = db_transaction.account_id
         db.delete(db_transaction)
         db.commit()
+        _recalculate_account_balance(db, account_id)
         return True
     return False
 
@@ -109,10 +166,10 @@ def get_portfolio_summary(db: Session) -> dict:
     for account in accounts:
         # Add cash balance
         if account.currency == 'KRW':
-            total_cash += account.balance
+            total_cash += account.current_balance
         else:  # USD
             # Convert USD to KRW using exchange rate (simplified)
-            total_cash += account.balance * Decimal('1300')  # Assume 1 USD = 1300 KRW
+            total_cash += account.current_balance * Decimal('1300')  # Assume 1 USD = 1300 KRW
     
     # Calculate stock holdings
     transactions = db.query(Transaction).filter(
