@@ -4,6 +4,14 @@ from datetime import datetime
 from decimal import Decimal
 from models import AccountType, TransactionType, Currency
 
+# Common Config for JSON encoding
+class BaseConfig(BaseModel):
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            Decimal: float
+        }
+
 # Account Schemas
 class AccountBase(BaseModel):
     owner_name: str = Field(..., max_length=100)
@@ -26,13 +34,10 @@ class AccountUpdate(BaseModel):
     current_balance: Optional[Decimal] = None
     currency: Optional[Currency] = None
 
-class Account(AccountBase):
+class Account(AccountBase, BaseConfig):
     id: int
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 # Transaction Schemas
 class TransactionBase(BaseModel):
@@ -41,6 +46,7 @@ class TransactionBase(BaseModel):
     amount: Optional[Decimal] = None
     stock_name: Optional[str] = Field(None, max_length=200)
     stock_symbol: Optional[str] = Field(None, max_length=20)
+    market: Optional[str] = None
     quantity: Optional[Decimal] = None
     price_per_share: Optional[Decimal] = None
     fee: Decimal = Field(default=Decimal('0.00'))
@@ -56,21 +62,19 @@ class TransactionUpdate(BaseModel):
     amount: Optional[Decimal] = None
     stock_name: Optional[str] = Field(None, max_length=200)
     stock_symbol: Optional[str] = Field(None, max_length=20)
+    market: Optional[str] = None
     quantity: Optional[Decimal] = None
     price_per_share: Optional[Decimal] = None
     fee: Optional[Decimal] = None
     transaction_currency: Optional[Currency] = None
     exchange_rate: Optional[Decimal] = None
 
-class Transaction(TransactionBase):
+class Transaction(TransactionBase, BaseConfig):
     id: int
     account_id: int
     created_at: datetime
     updated_at: datetime
     total_amount: Optional[Decimal] = None
-    
-    class Config:
-        from_attributes = True
 
 # Stock Search Schema
 class StockSearchResult(BaseModel):
@@ -79,7 +83,7 @@ class StockSearchResult(BaseModel):
     market: str
 
 # Portfolio Summary Schema
-class StockHolding(BaseModel):
+class StockHolding(BaseConfig):
     symbol: str
     name: str
     quantity: Decimal
@@ -89,7 +93,7 @@ class StockHolding(BaseModel):
     profit_loss: Decimal
     profit_loss_rate: Decimal
 
-class PortfolioSummary(BaseModel):
+class PortfolioSummary(BaseConfig):
     total_cash: Decimal
     total_stock_value: Decimal
     total_portfolio_value: Decimal

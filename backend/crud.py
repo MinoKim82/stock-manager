@@ -166,6 +166,8 @@ def get_all_transactions(db: Session, filters: TransactionFilter, skip: int = 0,
 
 # Portfolio summary calculation
 def get_portfolio_summary(db: Session) -> dict:
+    from stock_service import stock_service
+
     # Get all accounts
     accounts = db.query(Account).all()
     
@@ -177,13 +179,13 @@ def get_portfolio_summary(db: Session) -> dict:
         if account.currency == 'KRW':
             total_cash += account.current_balance
         else:  # USD
-            # Convert USD to KRW using exchange rate (simplified)
+            # TODO: Get real-time exchange rate
             total_cash += account.current_balance * Decimal('1300')  # Assume 1 USD = 1300 KRW
     
     # Calculate stock holdings
     transactions = db.query(Transaction).filter(
-        Transaction.transaction_type.in_(['BUY', 'SELL'])
-    ).all()
+        Transaction.transaction_type.in_([TransactionType.BUY, TransactionType.SELL])
+    ).order_by(Transaction.date).all()
     
     for transaction in transactions:
         if not transaction.stock_symbol:
@@ -196,26 +198,37 @@ def get_portfolio_summary(db: Session) -> dict:
                 'name': transaction.stock_name or '',
                 'quantity': Decimal('0'),
                 'total_cost': Decimal('0'),
-                'total_fee': Decimal('0')
+                'market': transaction.market.value if transaction.market else ''
             }
         
-        if transaction.transaction_type == 'BUY':
+        if transaction.transaction_type == TransactionType.BUY:
             holdings[symbol]['quantity'] += transaction.quantity or Decimal('0')
             holdings[symbol]['total_cost'] += (transaction.quantity or Decimal('0')) * (transaction.price_per_share or Decimal('0'))
-            holdings[symbol]['total_fee'] += transaction.fee or Decimal('0')
-        elif transaction.transaction_type == 'SELL':
-            holdings[symbol]['quantity'] -= transaction.quantity or Decimal('0')
-            holdings[symbol]['total_cost'] -= (transaction.quantity or Decimal('0')) * (transaction.price_per_share or Decimal('0'))
-            holdings[symbol]['total_fee'] += transaction.fee or Decimal('0')
-    
-    # Calculate current values (simplified - would need real-time price data)
+        elif transaction.transaction_type == TransactionType.SELL:
+            quantity_sold = transaction.quantity or Decimal('0')
+            if holdings[symbol]['quantity'] > 0:
+                avg_cost_before_sale = holdings[symbol]['total_cost'] / holdings[symbol]['quantity']
+                cost_of_sold_shares = quantity_sold * avg_cost_before_sale
+                holdings[symbol]['total_cost'] -= cost_of_sold_shares
+            holdings[symbol]['quantity'] -= quantity_sold
+
+    # Calculate current values
     total_stock_value = Decimal('0')
     portfolio_holdings = []
     
     for symbol, holding in holdings.items():
         if holding['quantity'] > 0:
-            # Simplified current price (would need real-time data)
-            current_price = Decimal('50000')  # Placeholder
+            market = holding['market']
+            # Determine market for API call
+            api_market = 'kr' # default
+            if market == 'KRX':
+                api_market = 'kr'
+            elif market in ['NYS', 'NAS', 'AMS']:
+                api_market = 'us'
+
+            current_price = stock_service.get_current_price(symbol, market=api_market)
+            current_price = Decimal(str(current_price)) if current_price is not None else Decimal('0')
+
             current_value = holding['quantity'] * current_price
             average_cost = holding['total_cost'] / holding['quantity'] if holding['quantity'] > 0 else Decimal('0')
             profit_loss = current_value - holding['total_cost']
