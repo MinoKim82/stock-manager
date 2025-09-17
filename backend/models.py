@@ -10,7 +10,7 @@ class AccountType(str, enum.Enum):
     ISA = "ISA계좌"
     CMA = "CMA계좌"
     COMPREHENSIVE = "종합매매계좌"
-    US_STOCK = "미국주식계좌"
+    OVERSEAS_STOCK = "해외주식계좌"
 
 class TransactionType(str, enum.Enum):
     DEPOSIT = "입금"
