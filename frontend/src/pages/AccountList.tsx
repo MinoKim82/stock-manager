@@ -85,6 +85,14 @@ const AccountList: React.FC = () => {
     }
   };
 
+  const handleAccountTypeChange = (value: string) => {
+    if (value === '해외주식계좌') {
+      form.setFieldsValue({ currency: 'USD' });
+    } else {
+      form.setFieldsValue({ currency: 'KRW' });
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
@@ -218,7 +226,7 @@ const AccountList: React.FC = () => {
             label="계좌유형"
             rules={[{ required: true, message: '계좌유형을 선택해주세요.' }]}
           >
-            <Select>
+            <Select onChange={handleAccountTypeChange}>
               {accountTypes.map(type => (
                 <Option key={type.value} value={type.value}>
                   {type.label}
@@ -231,6 +239,7 @@ const AccountList: React.FC = () => {
             name="initial_balance"
             label="초기 금액"
             rules={[{ required: true, message: '잔액을 입력해주세요.' }]}
+            initialValue={0}
           >
             <InputNumber
               style={{ width: '100%' }}
