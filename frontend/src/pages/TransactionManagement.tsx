@@ -138,6 +138,9 @@ const TransactionManagement: React.FC = () => {
 
       if (values.transaction_type === '매수' || values.transaction_type === '매도') {
         delete payload.amount;
+      } else if (values.transaction_type === '배당금') {
+        delete payload.quantity;
+        delete payload.price_per_share;
       } else {
         delete payload.stock_name;
         delete payload.stock_symbol;
@@ -459,7 +462,7 @@ const TransactionManagement: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              {(transactionType !== '매수' && transactionType !== '매도') && (
+              {['입금', '출금', '이자', '배당금'].includes(transactionType) && (
                 <Form.Item
                   name="amount"
                   label="금액"
@@ -474,56 +477,57 @@ const TransactionManagement: React.FC = () => {
             </Col>
           </Row>
 
-          {(transactionType === '매수' || transactionType === '매도') && (
-            <>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="stock_name" label="주식명">
-                    <Input.Search
-                      placeholder="주식명을 입력하세요"
-                      enterButton={<SearchOutlined />}
-                      onSearch={handleStockSearch}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={6}>
-                  <Form.Item name="stock_symbol" label="주식 심볼">
-                    <Input disabled />
-                  </Form.Item>
-                </Col>
-                <Col span={6}>
-                  <Form.Item name="market" label="거래소">
-                    <Select>
-                      {marketTypes.map(market => (
-                        <Option key={market.value} value={market.value}>
-                          {market.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="quantity" label="수량">
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="price_per_share" label="주당 가격">
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </>
+          {['매수', '매도', '배당금'].includes(transactionType) && (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="stock_name" label="주식명">
+                  <Input.Search
+                    placeholder="주식명을 입력하세요"
+                    enterButton={<SearchOutlined />}
+                    onSearch={handleStockSearch}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="stock_symbol" label="주식 심볼">
+                  <Input disabled />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item name="market" label="거래소">
+                  <Select>
+                    {marketTypes.map(market => (
+                      <Option key={market.value} value={market.value}>
+                        {market.label}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {['매수', '매도'].includes(transactionType) && (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="quantity" label="수량">
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="price_per_share" label="주당 가격">
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
           )}
 
           <Row gutter={16}>
@@ -564,7 +568,7 @@ const TransactionManagement: React.FC = () => {
           >
             <InputNumber
               style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '')}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
             />
           </Form.Item>
