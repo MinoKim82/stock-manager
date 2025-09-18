@@ -32,9 +32,77 @@ class StockService:
         # 캐시 디렉토리 생성
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
+        
+        # 초기화 시 토큰 캐시 로드
+        self._load_token_cache()
+
+    def _load_token_cache(self):
+        """토큰 캐시 파일에서 토큰 정보 로드"""
+        token_cache_file = os.path.join(self.cache_dir, "kis_token.pkl")
+        try:
+            if os.path.exists(token_cache_file):
+                with open(token_cache_file, 'rb') as f:
+                    token_data = pickle.load(f)
+                    self.KIS_ACCESS_TOKEN = token_data.get('access_token')
+                    self.KIS_TOKEN_EXPIRED_AT = token_data.get('expired_at')
+                    logger.info("KIS Access Token loaded from cache.")
+                    return True
+        except Exception as e:
+            logger.warning(f"Failed to load token cache: {e}")
+        return False
+
+    def _save_token_cache(self, access_token: str, expired_at: datetime):
+        """토큰 정보를 캐시 파일에 저장"""
+        token_cache_file = os.path.join(self.cache_dir, "kis_token.pkl")
+        try:
+            token_data = {
+                'access_token': access_token,
+                'expired_at': expired_at
+            }
+            with open(token_cache_file, 'wb') as f:
+                pickle.dump(token_data, f)
+            logger.info("KIS Access Token saved to cache.")
+        except Exception as e:
+            logger.error(f"Failed to save token cache: {e}")
+
+    def _clear_token_cache(self):
+        """토큰 캐시 파일 삭제"""
+        token_cache_file = os.path.join(self.cache_dir, "kis_token.pkl")
+        try:
+            if os.path.exists(token_cache_file):
+                os.remove(token_cache_file)
+                logger.info("KIS Access Token cache cleared.")
+        except Exception as e:
+            logger.error(f"Failed to clear token cache: {e}")
+
+    def get_token_status(self):
+        """토큰 상태 정보 반환"""
+        if not self.KIS_ACCESS_TOKEN or not self.KIS_TOKEN_EXPIRED_AT:
+            return {
+                "has_token": False,
+                "expired_at": None,
+                "is_valid": False,
+                "time_remaining": None
+            }
+        
+        now = datetime.now()
+        is_valid = now < self.KIS_TOKEN_EXPIRED_AT
+        time_remaining = (self.KIS_TOKEN_EXPIRED_AT - now).total_seconds() if is_valid else 0
+        
+        return {
+            "has_token": True,
+            "expired_at": self.KIS_TOKEN_EXPIRED_AT.isoformat(),
+            "is_valid": is_valid,
+            "time_remaining": time_remaining
+        }
 
     def _get_kis_access_token(self):
-        """한국투자증권 API 접근 토큰 발급 및 관리"""
+        """한국투자증권 API 접근 토큰 발급 및 관리 (파일 캐싱)"""
+        # 캐시에서 토큰 로드 시도
+        if not self.KIS_ACCESS_TOKEN or not self.KIS_TOKEN_EXPIRED_AT:
+            self._load_token_cache()
+        
+        # 유효한 토큰이 있으면 반환
         if self.KIS_ACCESS_TOKEN and self.KIS_TOKEN_EXPIRED_AT and datetime.now() < self.KIS_TOKEN_EXPIRED_AT:
             return self.KIS_ACCESS_TOKEN
 
@@ -42,6 +110,7 @@ class StockService:
             logger.error("KIS_APP_KEY or KIS_APP_SECRET is not set in .env")
             return None
 
+        # 새 토큰 발급
         url = f"{self.KIS_BASE_URL}/oauth2/tokenP"
         headers = {"content-type": "application/json"}
         body = {
@@ -53,13 +122,21 @@ class StockService:
             res = requests.post(url, headers=headers, data=json.dumps(body))
             res.raise_for_status()
             response_data = res.json()
-            self.KIS_ACCESS_TOKEN = response_data["access_token"]
+            access_token = response_data["access_token"]
             expires_in = response_data["expires_in"] # 초 단위
-            self.KIS_TOKEN_EXPIRED_AT = datetime.now() + timedelta(seconds=expires_in - 60) # 1분 여유
-            logger.info("KIS Access Token issued successfully.")
+            expired_at = datetime.now() + timedelta(seconds=expires_in - 60) # 1분 여유
+            
+            # 토큰 정보 저장
+            self.KIS_ACCESS_TOKEN = access_token
+            self.KIS_TOKEN_EXPIRED_AT = expired_at
+            self._save_token_cache(access_token, expired_at)
+            
+            logger.info("KIS Access Token issued and cached successfully.")
             return self.KIS_ACCESS_TOKEN
         except requests.exceptions.RequestException as e:
             logger.error(f"Error getting KIS access token: {e}")
+            # 토큰 발급 실패 시 캐시 삭제
+            self._clear_token_cache()
             return None
 
     def _get_kis_current_price(self, symbol: str) -> Optional[float]:

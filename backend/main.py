@@ -294,6 +294,16 @@ def get_stock_price(symbol: str, market: str = Query("kr", description="시장 (
         logger.error(f"Error getting stock price for {symbol}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get stock price")
 
+@app.get("/stocks/token-status")
+def get_token_status():
+    """KIS 토큰 상태 조회"""
+    try:
+        status = stock_service.get_token_status()
+        return status
+    except Exception as e:
+        logger.error(f"Error getting token status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get token status")
+
 # Portfolio summary endpoint
 @app.get("/portfolio/summary", response_model=schemas.PortfolioSummary)
 def get_portfolio_summary(db: Session = Depends(get_db)):
