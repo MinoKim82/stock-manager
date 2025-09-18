@@ -53,6 +53,18 @@ const TransactionList: React.FC = () => {
     { value: '이자', label: '이자' },
   ];
 
+  const cashTransactionTypes = [
+    { value: '입금', label: '입금' },
+    { value: '출금', label: '출금' },
+    { value: '배당금', label: '배당금' },
+    { value: '이자', label: '이자' },
+  ];
+
+  const stockTransactionTypes = [
+    { value: '매수', label: '매수' },
+    { value: '매도', label: '매도' },
+  ];
+
   const currencies = [
     { value: 'KRW', label: 'KRW (원)' },
     { value: 'USD', label: 'USD (달러)' },
@@ -184,11 +196,20 @@ const TransactionList: React.FC = () => {
     setStockSearchVisible(false);
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('ko-KR', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount);
+  const formatCurrency = (amount: number | undefined | null, currency: string) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '-';
+    }
+    
+    try {
+      return new Intl.NumberFormat('ko-KR', {
+        style: 'currency',
+        currency: currency,
+      }).format(amount);
+    } catch (error) {
+      console.error('Currency formatting error:', error, { amount, currency });
+      return amount.toString();
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -244,12 +265,6 @@ const TransactionList: React.FC = () => {
       ),
     },
     {
-      title: '거래소',
-      dataIndex: 'market',
-      key: 'market',
-      render: (value: string) => value || '-',
-    },
-    {
       title: '금액/가격',
       key: 'amount',
       render: (_: any, record: Transaction) => {
@@ -267,12 +282,31 @@ const TransactionList: React.FC = () => {
     },
     {
       title: '수수료',
-      dataIndex: 'fee',
       key: 'fee',
-      render: (value: number, record: Transaction) => {
-        const feeCurrency = record.transaction_type === '입금' ? 'KRW' : record.transaction_currency;
-        return formatCurrency(value, feeCurrency);
+      render: (value: any, record: Transaction) => {
+        // 현금 거래의 경우 환전수수료 표시
+        if (record.transaction_type === '입금' || record.transaction_type === '출금' || 
+            record.transaction_type === '배당금' || record.transaction_type === '이자') {
+          if (record.exchange_fee && record.exchange_fee > 0) {
+            return formatCurrency(record.exchange_fee, 'KRW');
+          }
+          return '-';
+        }
+        // 주식 거래의 경우 수수료 표시
+        else if (record.transaction_type === '매수' || record.transaction_type === '매도') {
+          if (record.fee && record.fee > 0) {
+            return formatCurrency(record.fee, record.transaction_currency);
+          }
+          return '-';
+        }
+        return '-';
       },
+    },
+    {
+      title: '설명',
+      dataIndex: 'description',
+      key: 'description',
+      render: (value: string) => value || '-',
     },
     {
       title: '작업',
@@ -439,15 +473,6 @@ const TransactionList: React.FC = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="fee" label="수수료" initialValue={0}>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
               <Form.Item
                 name="transaction_currency"
                 label="거래 통화"
@@ -462,14 +487,51 @@ const TransactionList: React.FC = () => {
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item name="exchange_rate" label="환율 (해당시)">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                />
+              </Form.Item>
+            </Col>
           </Row>
 
-          <Form.Item name="exchange_rate" label="환율 (해당시)">
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-            />
+          {/* 수수료 필드 - 거래 유형에 따라 동적 표시 */}
+          <Form.Item shouldUpdate={(prevValues, currentValues) => 
+            prevValues.transaction_type !== currentValues.transaction_type
+          }>
+            {({ getFieldValue }) => {
+              const transactionType = getFieldValue('transaction_type');
+              
+              if (cashTransactionTypes.includes(transactionType)) {
+                return (
+                  <Form.Item name="exchange_fee" label="수수료 (환전수수료 - 원화)" initialValue={0}>
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                    />
+                  </Form.Item>
+                );
+              } else if (stockTransactionTypes.includes(transactionType)) {
+                return (
+                  <Form.Item name="fee" label="수수료" initialValue={0}>
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                    />
+                  </Form.Item>
+                );
+              }
+              return null;
+            }}
+          </Form.Item>
+
+          <Form.Item name="description" label="설명">
+            <Input.TextArea rows={2} placeholder="거래에 대한 설명을 입력하세요" />
           </Form.Item>
         </Form>
       </Modal>

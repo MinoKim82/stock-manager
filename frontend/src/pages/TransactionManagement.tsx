@@ -204,11 +204,20 @@ const TransactionManagement: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('ko-KR', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount);
+  const formatCurrency = (amount: number | undefined | null, currency: string) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '-';
+    }
+    
+    try {
+      return new Intl.NumberFormat('ko-KR', {
+        style: 'currency',
+        currency: currency,
+      }).format(amount);
+    } catch (error) {
+      console.error('Currency formatting error:', error, { amount, currency });
+      return amount.toString();
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -283,13 +292,6 @@ const TransactionManagement: React.FC = () => {
       width: 120,
     },
     {
-      title: '거래소',
-      dataIndex: 'market',
-      key: 'market',
-      render: (value: string) => value || '-',
-      width: 100,
-    },
-    {
       title: '금액/가격',
       key: 'amount',
       render: (_: any, record: Transaction) => {
@@ -309,11 +311,24 @@ const TransactionManagement: React.FC = () => {
     },
     {
       title: '수수료',
-      dataIndex: 'fee',
       key: 'fee',
-      render: (value: number, record: Transaction) => {
-        const feeCurrency = record.transaction_type === '입금' ? 'KRW' : record.transaction_currency;
-        return formatCurrency(value, feeCurrency);
+      render: (value: any, record: Transaction) => {
+        // 현금 거래의 경우 환전수수료 표시
+        if (record.transaction_type === '입금' || record.transaction_type === '출금' || 
+            record.transaction_type === '배당금' || record.transaction_type === '이자') {
+          if (record.exchange_fee && record.exchange_fee > 0) {
+            return formatCurrency(record.exchange_fee, 'KRW');
+          }
+          return '-';
+        }
+        // 주식 거래의 경우 수수료 표시
+        else if (record.transaction_type === '매수' || record.transaction_type === '매도') {
+          if (record.fee && record.fee > 0) {
+            return formatCurrency(record.fee, record.transaction_currency);
+          }
+          return '-';
+        }
+        return '-';
       },
       width: 100,
     },

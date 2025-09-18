@@ -10,6 +10,51 @@ export interface Account {
   updated_at: string;
 }
 
+// 현금 거래 (입금, 출금, 배당금, 이자)
+export interface CashTransaction {
+  id: number;
+  account_id: number;
+  transaction_type: '입금' | '출금' | '배당금' | '이자';
+  date: string;
+  amount: number;
+  transaction_currency: 'KRW' | 'USD';
+  exchange_rate?: number;
+  exchange_fee: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 주식 정보
+export interface Stock {
+  id: number;
+  symbol: string;
+  name: string;
+  market: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 주식 거래 (매수, 매도)
+export interface StockTransaction {
+  id: number;
+  account_id: number;
+  transaction_type: '매수' | '매도';
+  date: string;
+  stock_id: number;
+  stock?: Stock; // 정규화된 주식 정보
+  quantity: number;
+  price_per_share: number;
+  fee: number;
+  transaction_currency: 'KRW' | 'USD';
+  exchange_rate?: number;
+  created_at: string;
+  updated_at: string;
+  total_amount: number;
+  net_amount: number;
+}
+
+// 통합 거래 타입 (표시용)
 export interface Transaction {
   id: number;
   account_id: number;
@@ -18,14 +63,18 @@ export interface Transaction {
   amount?: number;
   stock_name?: string;
   stock_symbol?: string;
+  market?: string;
   quantity?: number;
   price_per_share?: number;
-  fee: number;
+  fee?: number; // 주식 거래에만 있음
   transaction_currency: 'KRW' | 'USD';
   exchange_rate?: number;
+  exchange_fee?: number; // 현금 거래에만 있음
+  description?: string;
   created_at: string;
   updated_at: string;
   total_amount?: number;
+  net_amount?: number;
 }
 
 export interface StockSearchResult {
@@ -35,14 +84,22 @@ export interface StockSearchResult {
 }
 
 export interface StockHolding {
-  symbol: string;
-  name: string;
+  id: number;
+  account_id: number;
+  stock_id: number;
+  stock?: Stock; // 정규화된 주식 정보
   quantity: number;
   average_cost: number;
-  current_price: number;
-  current_value: number;
-  profit_loss: number;
-  profit_loss_rate: number;
+  total_cost: number;
+  created_at: string;
+  updated_at: string;
+  // 계산된 필드들 (프론트엔드에서 사용)
+  symbol?: string;
+  name?: string;
+  current_price?: number;
+  current_value?: number;
+  profit_loss?: number;
+  profit_loss_rate?: number;
 }
 
 export interface PortfolioSummary {
@@ -78,7 +135,9 @@ export interface TransactionFormData {
   market?: string;
   quantity?: number;
   price_per_share?: number;
-  fee: number;
+  fee?: number; // 주식 거래에만 필요
   transaction_currency: string;
   exchange_rate?: number;
+  exchange_fee?: number; // 현금 거래에만 필요
+  description?: string;
 }

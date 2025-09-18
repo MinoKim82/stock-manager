@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Account, Transaction, StockSearchResult, PortfolioSummary, TransactionFilter, AccountFormData, TransactionFormData } from '../types';
+import { Account, Transaction, CashTransaction, StockTransaction, StockSearchResult, PortfolioSummary, TransactionFilter, AccountFormData, TransactionFormData } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -42,53 +42,288 @@ export const accountApi = {
   },
 };
 
-// Transaction API
-export const transactionApi = {
-  // 모든 거래 목록 조회
-  getAllTransactions: async (filters?: TransactionFilter): Promise<Transaction[]> => {
+// Cash Transaction API (현금 거래)
+export const cashTransactionApi = {
+  // 모든 현금 거래 목록 조회
+  getAllTransactions: async (filters?: TransactionFilter): Promise<CashTransaction[]> => {
     const params = new URLSearchParams();
     if (filters?.start_date) params.append('start_date', filters.start_date);
     if (filters?.end_date) params.append('end_date', filters.end_date);
-    if (filters?.stock_symbol) params.append('stock_symbol', filters.stock_symbol);
     if (filters?.transaction_type) params.append('transaction_type', filters.transaction_type);
     
     const response = await api.get(`/transactions/?${params.toString()}`);
     return response.data;
   },
 
-  // 거래 목록 조회
-  getTransactions: async (accountId: number, filters?: TransactionFilter): Promise<Transaction[]> => {
+  // 현금 거래 목록 조회
+  getTransactions: async (accountId: number, filters?: TransactionFilter): Promise<CashTransaction[]> => {
     const params = new URLSearchParams();
     if (filters?.start_date) params.append('start_date', filters.start_date);
     if (filters?.end_date) params.append('end_date', filters.end_date);
-    if (filters?.stock_symbol) params.append('stock_symbol', filters.stock_symbol);
     if (filters?.transaction_type) params.append('transaction_type', filters.transaction_type);
     
     const response = await api.get(`/accounts/${accountId}/transactions/?${params.toString()}`);
     return response.data;
   },
 
-  // 거래 상세 조회
-  getTransaction: async (id: number): Promise<Transaction> => {
+  // 현금 거래 상세 조회
+  getTransaction: async (id: number): Promise<CashTransaction> => {
     const response = await api.get(`/transactions/${id}`);
     return response.data;
   },
 
-  // 거래 생성
-  createTransaction: async (transaction: TransactionFormData): Promise<Transaction> => {
+  // 현금 거래 생성
+  createTransaction: async (transaction: TransactionFormData): Promise<CashTransaction> => {
     const response = await api.post('/transactions/', transaction);
     return response.data;
   },
 
-  // 거래 수정
-  updateTransaction: async (id: number, transaction: Partial<TransactionFormData>): Promise<Transaction> => {
+  // 현금 거래 수정
+  updateTransaction: async (id: number, transaction: Partial<TransactionFormData>): Promise<CashTransaction> => {
     const response = await api.put(`/transactions/${id}`, transaction);
     return response.data;
   },
 
-  // 거래 삭제
+  // 현금 거래 삭제
   deleteTransaction: async (id: number): Promise<void> => {
     await api.delete(`/transactions/${id}`);
+  },
+};
+
+// Stock Transaction API (주식 거래)
+export const stockTransactionApi = {
+  // 모든 주식 거래 목록 조회
+  getAllTransactions: async (filters?: any): Promise<StockTransaction[]> => {
+    const params = new URLSearchParams();
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.stock_symbol) params.append('stock_symbol', filters.stock_symbol);
+    if (filters?.transaction_type) params.append('transaction_type', filters.transaction_type);
+    if (filters?.market) params.append('market', filters.market);
+    
+    const response = await api.get(`/stock-transactions/?${params.toString()}`);
+    return response.data;
+  },
+
+  // 주식 거래 목록 조회
+  getTransactions: async (accountId: number, filters?: any): Promise<StockTransaction[]> => {
+    const params = new URLSearchParams();
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    if (filters?.stock_symbol) params.append('stock_symbol', filters.stock_symbol);
+    if (filters?.transaction_type) params.append('transaction_type', filters.transaction_type);
+    if (filters?.market) params.append('market', filters.market);
+    
+    const response = await api.get(`/accounts/${accountId}/stock-transactions/?${params.toString()}`);
+    return response.data;
+  },
+
+  // 주식 거래 상세 조회
+  getTransaction: async (id: number): Promise<StockTransaction> => {
+    const response = await api.get(`/stock-transactions/${id}`);
+    return response.data;
+  },
+
+  // 주식 거래 생성
+  createTransaction: async (transaction: any): Promise<StockTransaction> => {
+    const response = await api.post('/stock-transactions/', transaction);
+    return response.data;
+  },
+
+  // 주식 거래 수정
+  updateTransaction: async (id: number, transaction: any): Promise<StockTransaction> => {
+    const response = await api.put(`/stock-transactions/${id}`, transaction);
+    return response.data;
+  },
+
+  // 주식 거래 삭제
+  deleteTransaction: async (id: number): Promise<void> => {
+    await api.delete(`/stock-transactions/${id}`);
+  },
+};
+
+// 통합 거래 API (하위 호환성)
+export const transactionApi = {
+  // 모든 거래 목록 조회 (현금 + 주식)
+  getAllTransactions: async (filters?: TransactionFilter): Promise<Transaction[]> => {
+    const [cashTransactions, stockTransactions] = await Promise.all([
+      cashTransactionApi.getAllTransactions(filters),
+      stockTransactionApi.getAllTransactions(filters)
+    ]);
+    
+    // 디버깅: 주식 거래 데이터 확인
+    console.log('Stock transactions:', stockTransactions[0]);
+    
+    // 통합하여 정렬
+    const allTransactions: Transaction[] = [
+      ...cashTransactions.map(t => ({
+        ...t,
+        stock_name: undefined,
+        stock_symbol: undefined,
+        market: undefined,
+        quantity: undefined,
+        price_per_share: undefined,
+        total_amount: undefined,
+        net_amount: undefined,
+        fee: undefined // 현금 거래에는 fee가 없음
+      })),
+      ...stockTransactions.map(t => ({
+        ...t,
+        amount: undefined,
+        exchange_fee: undefined,
+        description: undefined,
+        // stock 객체에서 정보 추출
+        stock_name: t.stock?.name,
+        stock_symbol: t.stock?.symbol,
+        market: undefined // 거래소 정보는 표시하지 않음
+      }))
+    ];
+    
+    // 중복 제거 (id 기준)
+    const uniqueTransactions = allTransactions.filter((transaction, index, self) => 
+      index === self.findIndex(t => t.id === transaction.id)
+    );
+    
+    return uniqueTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  },
+
+  // 거래 목록 조회 (현금 + 주식)
+  getTransactions: async (accountId: number, filters?: TransactionFilter): Promise<Transaction[]> => {
+    const [cashTransactions, stockTransactions] = await Promise.all([
+      cashTransactionApi.getTransactions(accountId, filters),
+      stockTransactionApi.getTransactions(accountId, filters)
+    ]);
+    
+    // 통합하여 정렬
+    const allTransactions: Transaction[] = [
+      ...cashTransactions.map(t => ({
+        ...t,
+        stock_name: undefined,
+        stock_symbol: undefined,
+        market: undefined,
+        quantity: undefined,
+        price_per_share: undefined,
+        total_amount: undefined,
+        net_amount: undefined,
+        fee: undefined // 현금 거래에는 fee가 없음
+      })),
+      ...stockTransactions.map(t => ({
+        ...t,
+        amount: undefined,
+        exchange_fee: undefined,
+        description: undefined,
+        // stock 객체에서 정보 추출
+        stock_name: t.stock?.name,
+        stock_symbol: t.stock?.symbol,
+        market: undefined // 거래소 정보는 표시하지 않음
+      }))
+    ];
+    
+    // 중복 제거 (id 기준)
+    const uniqueTransactions = allTransactions.filter((transaction, index, self) => 
+      index === self.findIndex(t => t.id === transaction.id)
+    );
+    
+    return uniqueTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  },
+
+  // 거래 상세 조회
+  getTransaction: async (id: number): Promise<Transaction> => {
+    try {
+      const cashTransaction = await cashTransactionApi.getTransaction(id);
+      return {
+        ...cashTransaction,
+        stock_name: undefined,
+        stock_symbol: undefined,
+        market: undefined,
+        quantity: undefined,
+        price_per_share: undefined,
+        total_amount: undefined,
+        net_amount: undefined,
+        fee: undefined
+      };
+    } catch {
+      const stockTransaction = await stockTransactionApi.getTransaction(id);
+      return {
+        ...stockTransaction,
+        amount: undefined,
+        exchange_fee: undefined,
+        description: undefined,
+        // stock 객체에서 정보 추출
+        stock_name: stockTransaction.stock?.name,
+        stock_symbol: stockTransaction.stock?.symbol,
+        market: undefined // 거래소 정보는 표시하지 않음
+      };
+    }
+  },
+
+  // 거래 생성
+  createTransaction: async (transaction: TransactionFormData): Promise<Transaction> => {
+    if (transaction.transaction_type === '매수' || transaction.transaction_type === '매도') {
+      const stockTransaction = await stockTransactionApi.createTransaction(transaction);
+      return {
+        ...stockTransaction,
+        amount: undefined,
+        exchange_fee: undefined,
+        description: undefined,
+        // stock 객체에서 정보 추출
+        stock_name: stockTransaction.stock?.name,
+        stock_symbol: stockTransaction.stock?.symbol,
+        market: undefined // 거래소 정보는 표시하지 않음
+      };
+    } else {
+      const cashTransaction = await cashTransactionApi.createTransaction(transaction);
+      return {
+        ...cashTransaction,
+        stock_name: undefined,
+        stock_symbol: undefined,
+        market: undefined,
+        quantity: undefined,
+        price_per_share: undefined,
+        total_amount: undefined,
+        net_amount: undefined,
+        fee: undefined
+      };
+    }
+  },
+
+  // 거래 수정
+  updateTransaction: async (id: number, transaction: Partial<TransactionFormData>): Promise<Transaction> => {
+    try {
+      const cashTransaction = await cashTransactionApi.updateTransaction(id, transaction);
+      return {
+        ...cashTransaction,
+        stock_name: undefined,
+        stock_symbol: undefined,
+        market: undefined,
+        quantity: undefined,
+        price_per_share: undefined,
+        total_amount: undefined,
+        net_amount: undefined,
+        fee: undefined
+      };
+    } catch {
+      const stockTransaction = await stockTransactionApi.updateTransaction(id, transaction);
+      return {
+        ...stockTransaction,
+        amount: undefined,
+        exchange_fee: undefined,
+        description: undefined,
+        // stock 객체에서 정보 추출
+        stock_name: stockTransaction.stock?.name,
+        stock_symbol: stockTransaction.stock?.symbol,
+        market: undefined // 거래소 정보는 표시하지 않음
+      };
+    }
+  },
+
+  // 거래 삭제
+  deleteTransaction: async (id: number): Promise<void> => {
+    try {
+      await cashTransactionApi.deleteTransaction(id);
+    } catch {
+      await stockTransactionApi.deleteTransaction(id);
+    }
   },
 };
 
