@@ -63,23 +63,6 @@ const TransactionManagement: React.FC = () => {
     { value: 'USD', label: 'USD (달러)' },
   ];
 
-  const marketTypes = [
-    { value: 'KRX', label: 'KRX (한국)' },
-    { value: 'HKS', label: 'HKS (홍콩)' },
-    { value: 'NYS', label: 'NYS (뉴욕)' },
-    { value: 'NAS', label: 'NAS (나스닥)' },
-    { value: 'AMS', label: 'AMS (아멕스)' },
-    { value: 'TSE', label: 'TSE (도쿄)' },
-    { value: 'SHS', label: 'SHS (상해)' },
-    { value: 'SZS', label: 'SZS (심천)' },
-    { value: 'SHI', label: 'SHI (상해지수)' },
-    { value: 'SZI', label: 'SZI (심천지수)' },
-    { value: 'HSX', label: 'HSX (호치민)' },
-    { value: 'HNX', label: 'HNX (하노이)' },
-    { value: 'BAY', label: 'BAY (뉴욕주간)' },
-    { value: 'BAQ', label: 'BAQ (나스닥주간)' },
-    { value: 'BAA', label: 'BAA (아멕스주간)' },
-  ];
 
   const fetchData = useCallback(async () => {
     try {
@@ -168,7 +151,6 @@ const TransactionManagement: React.FC = () => {
       } else {
         delete payload.stock_name;
         delete payload.stock_symbol;
-        delete payload.market;
         delete payload.quantity;
         delete payload.price_per_share;
       }
@@ -213,7 +195,6 @@ const TransactionManagement: React.FC = () => {
     form.setFieldsValue({
       stock_name: stock.name,
       stock_symbol: stock.symbol,
-      market: stock.market,
     });
     setStockSearchVisible(false);
   };
@@ -550,17 +531,6 @@ const TransactionManagement: React.FC = () => {
                   <Input disabled />
                 </Form.Item>
               </Col>
-              <Col span={6}>
-                <Form.Item name="market" label="거래소">
-                  <Select>
-                    {marketTypes.map(market => (
-                      <Option key={market.value} value={market.value}>
-                        {market.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
             </Row>
           )}
 
@@ -587,20 +557,61 @@ const TransactionManagement: React.FC = () => {
             </Row>
           )}
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="fee"
-                label="수수료"
-                initialValue={0}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                />
-              </Form.Item>
-            </Col>
+          {/* 수수료 필드 - 거래 유형에 따라 동적 표시 */}
+          <Form.Item shouldUpdate={(prevValues, currentValues) => 
+            prevValues.transaction_type !== currentValues.transaction_type ||
+            prevValues.account_id !== currentValues.account_id
+          }>
+            {({ getFieldValue }) => {
+              const currentTransactionType = getFieldValue('transaction_type');
+              const currentAccountId = getFieldValue('account_id');
+              const currentSelectedAccount = accounts.find(acc => acc.id === currentAccountId);
+              
+              // 매수/매도: 수수료 표시
+              if (currentTransactionType === '매수' || currentTransactionType === '매도') {
+                return (
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Form.Item
+                        name="fee"
+                        label="수수료"
+                        initialValue={0}
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                );
+              }
+              // 해외 계좌 입금/출금: 환전수수료 표시
+              else if ((currentTransactionType === '입금' || currentTransactionType === '출금') && currentSelectedAccount?.currency === 'USD') {
+                return (
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Form.Item
+                        name="exchange_fee"
+                        label="수수료 (환전수수료 - 원화)"
+                        initialValue={0}
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                );
+              }
+              // 배당금, 이자, 국내 계좌 입출금: 수수료 없음
+              return null;
+            }}
+          </Form.Item>
+            <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="transaction_currency"
@@ -617,18 +628,19 @@ const TransactionManagement: React.FC = () => {
                 </Select>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item
+                name="exchange_rate"
+                label="환율 (해당시)"
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                />
+              </Form.Item>
+            </Col>
           </Row>
-
-          <Form.Item
-            name="exchange_rate"
-            label="환율 (해당시)"
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-            />
-          </Form.Item>
         </Form>
       </Modal>
 
@@ -659,7 +671,7 @@ const TransactionManagement: React.FC = () => {
               >
                 <div><strong>{stock.name}</strong></div>
                 <div style={{ fontSize: '12px', color: '#666' }}>
-                  {stock.symbol} - {stock.market}
+                  {stock.symbol}
                 </div>
               </div>
             ))

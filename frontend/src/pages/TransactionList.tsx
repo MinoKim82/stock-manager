@@ -63,6 +63,7 @@ const TransactionList: React.FC = () => {
   const stockTransactionTypes = [
     { value: '매수', label: '매수' },
     { value: '매도', label: '매도' },
+    { value: '배당금', label: '배당금' },
   ];
 
   const currencies = [
@@ -70,23 +71,6 @@ const TransactionList: React.FC = () => {
     { value: 'USD', label: 'USD (달러)' },
   ];
 
-  const marketTypes = [
-    { value: 'KRX', label: 'KRX (한국)' },
-    { value: 'HKS', label: 'HKS (홍콩)' },
-    { value: 'NYS', label: 'NYS (뉴욕)' },
-    { value: 'NAS', label: 'NAS (나스닥)' },
-    { value: 'AMS', label: 'AMS (아멕스)' },
-    { value: 'TSE', label: 'TSE (도쿄)' },
-    { value: 'SHS', label: 'SHS (상해)' },
-    { value: 'SZS', label: 'SZS (심천)' },
-    { value: 'SHI', label: 'SHI (상해지수)' },
-    { value: 'SZI', label: 'SZI (심천지수)' },
-    { value: 'HSX', label: 'HSX (호치민)' },
-    { value: 'HNX', label: 'HNX (하노이)' },
-    { value: 'BAY', label: 'BAY (뉴욕주간)' },
-    { value: 'BAQ', label: 'BAQ (나스닥주간)' },
-    { value: 'BAA', label: 'BAA (아멕스주간)' },
-  ];
 
   const fetchData = useCallback(async () => {
     try {
@@ -150,7 +134,6 @@ const TransactionList: React.FC = () => {
       } else {
         delete payload.stock_name;
         delete payload.stock_symbol;
-        delete payload.market;
         delete payload.quantity;
         delete payload.price_per_share;
       }
@@ -191,7 +174,6 @@ const TransactionList: React.FC = () => {
     form.setFieldsValue({
       stock_name: stock.name,
       stock_symbol: stock.symbol,
-      market: stock.market,
     });
     setStockSearchVisible(false);
   };
@@ -424,17 +406,6 @@ const TransactionList: React.FC = () => {
                   <Input disabled />
                 </Form.Item>
               </Col>
-              <Col span={6}>
-                <Form.Item name="market" label="거래소">
-                  <Select>
-                    {marketTypes.map(market => (
-                      <Option key={market.value} value={market.value}>
-                        {market.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
             </Row>
           )}
 
@@ -500,22 +471,16 @@ const TransactionList: React.FC = () => {
 
           {/* 수수료 필드 - 거래 유형에 따라 동적 표시 */}
           <Form.Item shouldUpdate={(prevValues, currentValues) => 
-            prevValues.transaction_type !== currentValues.transaction_type
+            prevValues.transaction_type !== currentValues.transaction_type ||
+            prevValues.account_id !== currentValues.account_id
           }>
             {({ getFieldValue }) => {
               const transactionType = getFieldValue('transaction_type');
+              const accountId = getFieldValue('account_id');
+              const selectedAccount = account;
               
-              if (cashTransactionTypes.includes(transactionType)) {
-                return (
-                  <Form.Item name="exchange_fee" label="수수료 (환전수수료 - 원화)" initialValue={0}>
-                    <InputNumber
-                      style={{ width: '100%' }}
-                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-                    />
-                  </Form.Item>
-                );
-              } else if (stockTransactionTypes.includes(transactionType)) {
+              // 매수/매도: 수수료 표시
+              if (transactionType === '매수' || transactionType === '매도') {
                 return (
                   <Form.Item name="fee" label="수수료" initialValue={0}>
                     <InputNumber
@@ -526,6 +491,19 @@ const TransactionList: React.FC = () => {
                   </Form.Item>
                 );
               }
+              // 해외 계좌 입금/출금: 환전수수료 표시
+              else if ((transactionType === '입금' || transactionType === '출금') && selectedAccount?.currency === 'USD') {
+                return (
+                  <Form.Item name="exchange_fee" label="수수료 (환전수수료 - 원화)" initialValue={0}>
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+                    />
+                  </Form.Item>
+                );
+              }
+              // 배당금, 이자, 국내 계좌 입출금: 수수료 없음
               return null;
             }}
           </Form.Item>
@@ -557,9 +535,9 @@ const TransactionList: React.FC = () => {
               onClick={() => handleStockSelect(stock)}
             >
               <div><strong>{stock.name}</strong></div>
-              <div style={{ fontSize: '12px', color: '#666' }}>
-                {stock.symbol} - {stock.market}
-              </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  {stock.symbol}
+                </div>
             </div>
           ))}
         </div>

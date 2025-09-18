@@ -164,7 +164,6 @@ export const transactionApi = {
         ...t,
         stock_name: undefined,
         stock_symbol: undefined,
-        market: undefined,
         quantity: undefined,
         price_per_share: undefined,
         total_amount: undefined,
@@ -181,7 +180,6 @@ export const transactionApi = {
           // stock 객체에서 정보 추출
           stock_name: t.stock?.name || undefined,
           stock_symbol: t.stock?.symbol || undefined,
-          market: undefined // 거래소 정보는 표시하지 않음
         };
       })
     ];
@@ -213,7 +211,6 @@ export const transactionApi = {
         ...t,
         stock_name: undefined,
         stock_symbol: undefined,
-        market: undefined,
         quantity: undefined,
         price_per_share: undefined,
         total_amount: undefined,
@@ -228,7 +225,6 @@ export const transactionApi = {
         // stock 객체에서 정보 추출
         stock_name: t.stock?.name,
         stock_symbol: t.stock?.symbol,
-        market: undefined // 거래소 정보는 표시하지 않음
       }))
     ];
     
@@ -248,7 +244,6 @@ export const transactionApi = {
         ...cashTransaction,
         stock_name: undefined,
         stock_symbol: undefined,
-        market: undefined,
         quantity: undefined,
         price_per_share: undefined,
         total_amount: undefined,
@@ -265,7 +260,6 @@ export const transactionApi = {
         // stock 객체에서 정보 추출
         stock_name: stockTransaction.stock?.name,
         stock_symbol: stockTransaction.stock?.symbol,
-        market: undefined // 거래소 정보는 표시하지 않음
       };
     }
   },
@@ -282,7 +276,6 @@ export const transactionApi = {
         // stock 객체에서 정보 추출
         stock_name: stockTransaction.stock?.name,
         stock_symbol: stockTransaction.stock?.symbol,
-        market: undefined // 거래소 정보는 표시하지 않음
       };
     } else {
       const cashTransaction = await cashTransactionApi.createTransaction(transaction);
@@ -290,7 +283,6 @@ export const transactionApi = {
         ...cashTransaction,
         stock_name: undefined,
         stock_symbol: undefined,
-        market: undefined,
         quantity: undefined,
         price_per_share: undefined,
         total_amount: undefined,
@@ -308,7 +300,6 @@ export const transactionApi = {
         ...cashTransaction,
         stock_name: undefined,
         stock_symbol: undefined,
-        market: undefined,
         quantity: undefined,
         price_per_share: undefined,
         total_amount: undefined,
@@ -325,7 +316,6 @@ export const transactionApi = {
         // stock 객체에서 정보 추출
         stock_name: stockTransaction.stock?.name,
         stock_symbol: stockTransaction.stock?.symbol,
-        market: undefined // 거래소 정보는 표시하지 않음
       };
     }
   },

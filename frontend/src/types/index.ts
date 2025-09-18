@@ -63,7 +63,6 @@ export interface Transaction {
   amount?: number;
   stock_name?: string;
   stock_symbol?: string;
-  market?: string;
   quantity?: number;
   price_per_share?: number;
   fee?: number; // 주식 거래에만 있음
@@ -132,7 +131,6 @@ export interface TransactionFormData {
   amount?: number;
   stock_name?: string;
   stock_symbol?: string;
-  market?: string;
   quantity?: number;
   price_per_share?: number;
   fee?: number; // 주식 거래에만 필요
