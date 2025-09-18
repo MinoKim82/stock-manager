@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 class StockService:
     def __init__(self):
         self.kr_stocks = None
+        self.kr_etfs = None
         self.us_stocks = None
+        self.us_etfs = None
         self.cache_dir = "stock_cache"
         self.cache_duration = timedelta(days=1)  # 1일 캐시
 
@@ -290,7 +292,38 @@ class StockService:
             
         except Exception as e:
             logger.error(f"Error loading Korean stocks: {e}")
-    
+
+    def _load_kr_etfs(self):
+        """한국 etf 목록 로드 (캐싱 적용)"""
+        if self.kr_etfs is not None:
+            return
+            
+        cache_file = os.path.join(self.cache_dir, "kr_etfs.pkl")
+        
+        # 캐시가 유효한지 확인
+        if self._is_cache_valid(cache_file):
+            logger.info("Loading Korean etfs from cache")
+            self.kr_etfs = self._load_from_cache(cache_file)
+            if self.kr_etfs is not None:
+                return
+        
+        # 캐시가 없거나 만료된 경우 API에서 로드
+        try:
+            logger.info("Loading Korean etfs from API")
+            self.kr_etfs = fdr.StockListing('ETF/KR')
+
+            # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
+            if 'Code' in self.kr_etfs.columns:
+                self.kr_etfs = self.kr_etfs.rename(columns={'Code': 'Symbol'})
+            
+            logger.info(f"Loaded {len(self.kr_etfs)} Korean etf from API")
+            
+            # 캐시에 저장
+            self._save_to_cache(self.kr_etfs, cache_file)
+            
+        except Exception as e:
+            logger.error(f"Error loading Korean etfs: {e}")
+
     def _load_us_stocks(self):
         """미국 주식 목록 로드 (NYSE, NASDAQ, AMEX) (캐싱 적용)"""
         if self.us_stocks is not None:
@@ -314,10 +347,8 @@ class StockService:
             nasdaq['Market'] = 'NAS'
             amex = fdr.StockListing('AMEX')
             amex['Market'] = 'AMS'
-            etf = fdr.StockListing('ETF/US')
-            etf['Market'] = 'AMS'
             
-            self.us_stocks = pd.concat([nyse, nasdaq, amex, etf], ignore_index=True)
+            self.us_stocks = pd.concat([nyse, nasdaq, amex], ignore_index=True)
             
             # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
             if 'Code' in self.us_stocks.columns:
@@ -330,6 +361,37 @@ class StockService:
             
         except Exception as e:
             logger.error(f"Error loading US stocks: {e}")
+
+    def _load_us_etfs(self):
+        """미국 etf 목록 로드 """
+        if self.us_etfs is not None:
+            return
+            
+        cache_file = os.path.join(self.cache_dir, "us_etfs.pkl")
+        
+        # 캐시가 유효한지 확인
+        if self._is_cache_valid(cache_file):
+            logger.info("Loading US etfs from cache")
+            self.us_etfs = self._load_from_cache(cache_file)
+            if self.us_etfs is not None:
+                return
+        
+        # 캐시가 없거나 만료된 경우 API에서 로드
+        try:
+            logger.info("Loading US etfs from API")
+            self.us_etfs = fdr.StockListing('ETF/US')
+
+            # 컬럼명 정규화 (FinanceDataReader는 'Code'와 'Name' 사용)
+            if 'Code' in self.us_etfs.columns:
+                self.us_etfs = self.us_etfs.rename(columns={'Code': 'Symbol'})
+            
+            logger.info(f"Loaded {len(self.us_etfs)} US etfs from API")
+            
+            # 캐시에 저장
+            self._save_to_cache(self.us_etfs, cache_file)
+            
+        except Exception as e:
+            logger.error(f"Error loading US etfs: {e}")
     
     def search_kr_stocks(self, query: str, limit: int = 20) -> List[StockSearchResult]:
         """한국 주식 검색"""
@@ -346,6 +408,31 @@ class StockService:
         )
         
         results = self.kr_stocks[mask].head(limit)
+        
+        return [
+            StockSearchResult(
+                symbol=row['Symbol'],
+                name=row['Name'],
+                market='KRX'
+            )
+            for _, row in results.iterrows()
+        ]
+
+    def search_kr_etfs(self, query: str, limit: int = 20) -> List[StockSearchResult]:
+        """한국 etf 검색"""
+        self._load_kr_etfs()
+        
+        if self.kr_etfs is None or self.kr_etfs.empty:
+            return []
+        
+        # 이름과 심볼로 검색
+        query_lower = query.lower()
+        mask = (
+            self.kr_etfs['Name'].str.lower().str.contains(query_lower, na=False) |
+            self.kr_etfs['Symbol'].str.lower().str.contains(query_lower, na=False)
+        )
+        
+        results = self.kr_etfs[mask].head(limit)
         
         return [
             StockSearchResult(
@@ -381,6 +468,31 @@ class StockService:
             for _, row in results.iterrows()
         ]
     
+    def search_us_etfs(self, query: str, limit: int = 20) -> List[StockSearchResult]:
+        """미국 etf 검색"""
+        self._load_us_etfs()
+
+        if self.us_etfs is None or self.us_etfs.empty:
+            return []
+        
+        # 이름과 심볼로 검색
+        query_lower = query.lower()
+        mask = (
+            self.us_etfs['Name'].str.lower().str.contains(query_lower, na=False) |
+            self.us_etfs['Symbol'].str.lower().str.contains(query_lower, na=False)
+        )
+        
+        results = self.us_etfs[mask].head(limit)
+
+        return [
+            StockSearchResult(
+                symbol=row['Symbol'],
+                name=row['Name'],
+                market='NYS'
+            )
+            for _, row in results.iterrows()
+        ]
+
     def search_stocks(self, query: str, market: str = 'all', limit: int = 20) -> List[StockSearchResult]:
         """주식 검색 (한국 + 미국)"""
         results = []
@@ -392,6 +504,14 @@ class StockService:
         if market in ['all', 'us']:
             us_results = self.search_us_stocks(query, limit)
             results.extend(us_results)
+
+        if market in ['all', 'kr']:
+            kr_etf_results = self.search_kr_etfs(query, limit)
+            results.extend(kr_etf_results)
+        
+        if market in ['all', 'us']:
+            us_etf_results = self.search_us_etfs(query, limit)
+            results.extend(us_etf_results)
         
         # 결과 제한
         return results[:limit]
