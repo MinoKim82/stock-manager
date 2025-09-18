@@ -41,6 +41,11 @@ const TransactionManagement: React.FC = () => {
   const [stockSearchResults, setStockSearchResults] = useState<StockSearchResult[]>([]);
   const [stockSearchLoading, setStockSearchLoading] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    transaction_type: undefined,
+    start_date: undefined,
+    end_date: undefined
+  });
   const [form] = Form.useForm();
   const transactionType = Form.useWatch('transaction_type', form);
 
@@ -81,7 +86,7 @@ const TransactionManagement: React.FC = () => {
       setLoading(true);
       const [accountsData, transactionsData] = await Promise.all([
         accountApi.getAccounts(),
-        transactionApi.getAllTransactions()
+        transactionApi.getAllTransactions(filters)
       ]);
       setAccounts(accountsData);
       setTransactions(transactionsData);
@@ -91,7 +96,7 @@ const TransactionManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchData();
@@ -130,6 +135,25 @@ const TransactionManagement: React.FC = () => {
       message.error('거래 삭제에 실패했습니다.');
       console.error('Error deleting transaction:', error);
     }
+  };
+
+  const handleFilterChange = (field: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleFilterApply = () => {
+    fetchData();
+  };
+
+  const handleFilterClear = () => {
+    setFilters({
+      transaction_type: undefined,
+      start_date: undefined,
+      end_date: undefined
+    });
   };
 
   const handleSubmit = async (values: TransactionFormData) => {
@@ -385,7 +409,13 @@ const TransactionManagement: React.FC = () => {
           <Card size="small" style={{ marginBottom: 16, background: '#f5f5f5' }}>
             <Row gutter={16}>
               <Col span={6}>
-                <Select placeholder="거래 유형" style={{ width: '100%' }} allowClear>
+                <Select 
+                  placeholder="거래 유형" 
+                  style={{ width: '100%' }} 
+                  allowClear
+                  value={filters.transaction_type}
+                  onChange={(value) => handleFilterChange('transaction_type', value)}
+                >
                   {transactionTypes.map(type => (
                     <Option key={type.value} value={type.value}>
                       {type.label}
@@ -394,21 +424,30 @@ const TransactionManagement: React.FC = () => {
                 </Select>
               </Col>
               <Col span={6}>
-                <Select placeholder="계좌" style={{ width: '100%' }} allowClear>
-                  {accounts.map(account => (
-                    <Option key={account.id} value={account.id}>
-                      {account.owner_name} ({account.broker})
-                    </Option>
-                  ))}
-                </Select>
+                <DatePicker 
+                  placeholder="시작일" 
+                  style={{ width: '100%' }}
+                  value={filters.start_date ? dayjs(filters.start_date) : null}
+                  onChange={(date) => handleFilterChange('start_date', date ? date.format('YYYY-MM-DD') : undefined)}
+                />
               </Col>
               <Col span={6}>
-                <DatePicker.RangePicker style={{ width: '100%' }} placeholder={['시작일', '종료일']} />
+                <DatePicker 
+                  placeholder="종료일" 
+                  style={{ width: '100%' }}
+                  value={filters.end_date ? dayjs(filters.end_date) : null}
+                  onChange={(date) => handleFilterChange('end_date', date ? date.format('YYYY-MM-DD') : undefined)}
+                />
               </Col>
               <Col span={6}>
-                <Button type="primary" icon={<SearchOutlined />} style={{ width: '100%' }}>
-                  검색
-                </Button>
+                <Space>
+                  <Button type="primary" icon={<SearchOutlined />} onClick={handleFilterApply}>
+                    검색
+                  </Button>
+                  <Button onClick={handleFilterClear}>
+                    초기화
+                  </Button>
+                </Space>
               </Col>
             </Row>
           </Card>

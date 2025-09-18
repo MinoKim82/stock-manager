@@ -153,6 +153,10 @@ export const transactionApi = {
     
     // 디버깅: 주식 거래 데이터 확인
     console.log('Stock transactions:', stockTransactions[0]);
+    console.log('Stock transactions length:', stockTransactions.length);
+    if (stockTransactions[0]) {
+      console.log('First stock transaction stock:', stockTransactions[0].stock);
+    }
     
     // 통합하여 정렬
     const allTransactions: Transaction[] = [
@@ -167,22 +171,31 @@ export const transactionApi = {
         net_amount: undefined,
         fee: undefined // 현금 거래에는 fee가 없음
       })),
-      ...stockTransactions.map(t => ({
-        ...t,
-        amount: undefined,
-        exchange_fee: undefined,
-        description: undefined,
-        // stock 객체에서 정보 추출
-        stock_name: t.stock?.name,
-        stock_symbol: t.stock?.symbol,
-        market: undefined // 거래소 정보는 표시하지 않음
-      }))
+      ...stockTransactions.map(t => {
+        console.log('Processing stock transaction:', t.id, 'stock:', t.stock);
+        return {
+          ...t,
+          amount: undefined,
+          exchange_fee: undefined,
+          description: undefined,
+          // stock 객체에서 정보 추출
+          stock_name: t.stock?.name || undefined,
+          stock_symbol: t.stock?.symbol || undefined,
+          market: undefined // 거래소 정보는 표시하지 않음
+        };
+      })
     ];
     
-    // 중복 제거 (id 기준)
+    // 중복 제거 (거래 유형 + id 기준으로 고유하게 처리)
     const uniqueTransactions = allTransactions.filter((transaction, index, self) => 
-      index === self.findIndex(t => t.id === transaction.id)
+      index === self.findIndex(t => 
+        t.id === transaction.id && 
+        t.transaction_type === transaction.transaction_type
+      )
     );
+    
+    console.log('Final transactions count:', uniqueTransactions.length);
+    console.log('2021-04-18 transaction in final list:', uniqueTransactions.find(t => t.id === 13 && t.transaction_type === '매수'));
     
     return uniqueTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
